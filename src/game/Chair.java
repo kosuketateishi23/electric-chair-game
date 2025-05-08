@@ -61,7 +61,6 @@ public class Chair {
     public static Chair sitOnChair(List<Chair> chairs, int chairNumber) {
         for (Chair chair : chairs) {
             if (chair.getNumber() == chairNumber && !chair.isUsed()) {
-                chair.setUsed(true);
                 return chair;
             }
         }
