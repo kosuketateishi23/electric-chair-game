@@ -35,7 +35,7 @@ public class GameState {
 
     // 得点処理
     public void addScore(int points) {
-        if (isPlayerATurn) scoreA += points;
+        if (!isPlayerATurn) scoreA += points;
         else scoreB += points;
     }
 

@@ -2,6 +2,9 @@ package game;
 
 import utils.InputWithTimeout;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
@@ -19,17 +22,18 @@ public class TurnManager {
         this.scanner = new Scanner(System.in);
     }
 
-    public void setupElectricShock() {
+    public void setupElectricShock(BufferedReader in, PrintWriter out) throws IOException{
         List<Chair> chairs = gameState.getChairs();
         String attacker = gameState.isPlayerATurn() ? "A" : "B";
-        System.out.println(attacker + "：感電イスの番号を選んでください（制限時間 " + TIMEOUT_SWITCH_SECONDS + " 秒）:");
+        out.println(attacker + "：感電イスの番号を選んでください（制限時間 " + TIMEOUT_SWITCH_SECONDS + " 秒）:");
         for (Chair chair : Chair.getRemainingChairs(chairs)) {
-            System.out.print(chair.getNumber() + " ");
+            out.print(chair.getNumber() + " ");
         }
-        System.out.println();
+        out.println("~");
+        out.flush();
 
         try {
-            String input = InputWithTimeout.readLineWithTimeout(TIMEOUT_SWITCH_SECONDS);
+            String input = InputWithTimeout.readLineWithTimeout(in, TIMEOUT_SWITCH_SECONDS);
             int num = Integer.parseInt(input);
 
             for (Chair chair : chairs) {
@@ -44,44 +48,46 @@ public class TurnManager {
             }
 
         } catch (TimeoutException e) {
-            System.out.println("時間切れです。ランダムに感電イスをセットします。");
+            out.println("時間切れです。ランダムに感電イスをセットします。");
             setRandomShock(chairs);
         } catch (Exception e) {
-            System.out.println("無効な入力です。ランダムに感電イスをセットします。");
+            out.println("無効な入力です。ランダムに感電イスをセットします。");
             setRandomShock(chairs);
         }
+
+        out.println("相手が入力中です．．．");
     }
 
-    public void seatPlayer() {
+    public void seatPlayer(BufferedReader in, PrintWriter out) throws IOException{
         List<Chair> chairs = gameState.getChairs();
         String defender = gameState.isPlayerATurn() ? "B" : "A";
-        System.out.println(defender + "：座る椅子を選んでください（制限時間 " + TIMEOUT_SEAT_SECONDS + " 秒）:");
+        out.println(defender + "：座る椅子を選んでください（制限時間 " + TIMEOUT_SEAT_SECONDS + " 秒）:");
         for (Chair chair : Chair.getRemainingChairs(chairs)) {
-            System.out.print(chair.getNumber() + " ");
+            out.print(chair.getNumber() + " ");
         }
-        System.out.println();
+        out.println("~");
 
         try {
-            String input = InputWithTimeout.readLineWithTimeout(TIMEOUT_SEAT_SECONDS);
+            String input = InputWithTimeout.readLineWithTimeout(in, TIMEOUT_SEAT_SECONDS);
             int chairNum = Integer.parseInt(input);
             Chair chosen = Chair.sitOnChair(chairs, chairNum);
 
             if (chosen == null) {
-                System.out.println("無効な椅子、または使用済みです。感電とみなします。");
+                out.println("無効な椅子、または使用済みです。感電とみなします。");
                 gameState.applyShockToDefender();
             } else if (chosen.hasElectricShock()) {
-                System.out.println("感電しました！");
+                out.println("感電しました！");
                 gameState.applyShockToDefender();
             } else {
                 int points = chosen.getNumber();
-                System.out.println("無事に座れました！+" + points + "点");
+                out.println("無事に座れました！+" + points + "点");
                 chosen.setUsed(true);  // ✅ 成功時のみ使用済みにする
                 gameState.addScore(points);
 
                 if (SHOW_SHOCKED_CHAIR_IF_SAFE) {
                     for (Chair c : chairs) {
                         if (c.hasElectricShock()) {
-                            System.out.println("※ 感電イスは「イス番号 " + c.getNumber() + "」でした。");
+                            out.println("※ 感電イスは「イス番号 " + c.getNumber() + "」でした。");
                             break;
                         }
                     }
@@ -89,10 +95,10 @@ public class TurnManager {
             }
 
         } catch (TimeoutException e) {
-            System.out.println("時間切れです。感電扱いになります。");
+            out.println("時間切れです。感電扱いになります。");
             gameState.applyShockToDefender();
         } catch (Exception e) {
-            System.out.println("無効な入力です。感電扱いになります。");
+            out.println("無効な入力です。感電扱いになります。");
             gameState.applyShockToDefender();
         }
 
@@ -100,18 +106,19 @@ public class TurnManager {
         Chair.removeUsedChairs(chairs);
     }
 
-    public void runTurn() {
+    public void runTurn(BufferedReader attackerIn, PrintWriter attackerOut, BufferedReader defenderIn, PrintWriter defenderOut) throws IOException{
         System.out.println("--- ターン開始 ---");
         String attacker = gameState.isPlayerATurn() ? "A" : "B";
         String defender = gameState.isPlayerATurn() ? "B" : "A";
         System.out.println("現在のターン：（攻撃 " + attacker + " / 守備 " + defender + "）");
 
-        setupElectricShock();
-        seatPlayer();
+        setupElectricShock(attackerIn, attackerOut);
+        seatPlayer(defenderIn, defenderOut);
 
         gameState.checkGameOver();
         gameState.switchTurn();
-        System.out.println("--- ターン終了 ---\n");
+        attackerOut.println("--- ターン終了 ---\n");
+        defenderOut.println("--- ターン終了 ---\n");
     }
 
     private void setRandomShock(List<Chair> chairs) {
